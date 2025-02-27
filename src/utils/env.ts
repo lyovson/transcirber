@@ -28,13 +28,32 @@ export async function loadEnv(): Promise<Result<Partial<EnvVars>, Error>> {
  * Sets up environment variables for the application
  */
 export async function setupEnv(): Promise<boolean> {
-  const envResult = await loadEnv()
+  try {
+    // Load environment variables from .env file
+    const envResult = await loadEnv()
 
-  if (envResult.ok && 'ELEVENLABS_API_KEY' in envResult.data && envResult.data.ELEVENLABS_API_KEY) {
-    Deno.env.set('ELEVENLABS_API_KEY', envResult.data.ELEVENLABS_API_KEY)
+    if (!envResult.ok) {
+      console.error('Failed to load .env file')
+      return false
+    }
+
+    // Set environment variables
+    for (const [key, value] of Object.entries(envResult.data)) {
+      if (value) {
+        Deno.env.set(key, value)
+      }
+    }
+
+    // Verify the API key is set
+    const apiKey = Deno.env.get('ELEVENLABS_API_KEY')
+    if (!apiKey) {
+      console.error('Error: ELEVENLABS_API_KEY not found in .env file')
+      return false
+    }
+
     return true
+  } catch (error) {
+    console.error('Error setting up environment:', error)
+    return false
   }
-
-  console.error('Error: ELEVENLABS_API_KEY not found in .env file')
-  return false
 }

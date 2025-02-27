@@ -5,12 +5,14 @@ import { extname, join, parse } from 'https://deno.land/std@0.220.1/path/mod.ts'
  * Service for handling file operations
  */
 export class FileService {
-  private readonly inputDir: string
-  private readonly outputDir: string
-  private readonly combinedOutputFile: string
+  private inputDir: string
+  private outputDir: string
+  private combinedOutputFile: string
 
   /**
    * Creates a new FileService instance
+   * @param inputDir - Directory containing input audio files
+   * @param outputDir - Directory for output transcription files
    */
   constructor(
     inputDir = join(Deno.cwd(), 'inputs'),
@@ -34,6 +36,7 @@ export class FileService {
 
   /**
    * Gets all audio files from the input directory
+   * @returns Array of audio file names
    */
   async getAudioFiles(): Promise<string[]> {
     try {
@@ -58,6 +61,8 @@ export class FileService {
 
   /**
    * Reads an audio file and converts it to a Blob
+   * @param fileName - Name of the audio file
+   * @returns Audio blob
    */
   async readAudioFile(fileName: string): Promise<Blob> {
     const filePath = join(this.inputDir, fileName)
@@ -71,6 +76,9 @@ export class FileService {
 
   /**
    * Saves transcription to individual file
+   * @param text - Transcription text
+   * @param fileName - Original audio file name
+   * @returns Path to the saved file
    */
   async saveTranscription(text: string, fileName: string): Promise<string> {
     const baseName = parse(fileName).name
@@ -85,6 +93,7 @@ export class FileService {
 
   /**
    * Combines all individual transcriptions into a single file
+   * @param transcriptions - Map of filename to transcription text
    */
   async combineTranscriptions(
     transcriptions: Map<string, string>,

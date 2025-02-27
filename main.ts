@@ -4,6 +4,8 @@ import { TranscriptionApp } from './src/app.ts'
  * Main entry point for the application
  */
 async function main(): Promise<void> {
+  console.log('Starting application...')
+
   // Create and initialize the application
   const app = new TranscriptionApp({
     modelId: 'scribe_v1',
@@ -12,12 +14,16 @@ async function main(): Promise<void> {
     diarize: false,
   })
 
+  console.log('App created, initializing...')
+
   // Initialize the application
   const initialized = await app.initialize()
   if (!initialized) {
     console.error('Failed to initialize the application')
     Deno.exit(1)
   }
+
+  console.log('App initialized successfully, running transcription...')
 
   // Run the transcription process
   await app.run()

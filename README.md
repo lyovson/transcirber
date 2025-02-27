@@ -28,6 +28,7 @@ A simple tool to transcribe audio files using the ElevenLabs API, built with Den
    ```
    deno task start
    ```
+   This will automatically load environment variables from your `.env` file.
 3. Transcribed text files will be saved in the `outputs` folder:
    - Individual transcriptions with the same filename but with a `.txt` extension
    - A combined file named `combined_transcription.txt` containing all transcriptions
@@ -66,6 +67,14 @@ This project uses Deno's built-in tools:
 - **Linting**: `deno task lint`
 - **Formatting**: `deno task fmt`
 - **Testing**: `deno task test`
+
+### Environment Variables
+
+The application uses Deno's built-in environment variable handling:
+
+- Environment variables are loaded from the `.env` file using the `--env-file` flag
+- The `setupEnv` utility function ensures all variables are properly set
+- All tasks in `deno.json` are configured to use the `.env` file automatically
 
 ### Git Setup
 

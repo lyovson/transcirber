@@ -5,14 +5,22 @@ import { Result, TranscriptionConfig, TranscriptionResult } from '../types/index
  * Service for handling transcription operations
  */
 export class TranscriptionService {
-  private readonly client: ElevenLabsClient
+  private client: ElevenLabsClient
   private config: TranscriptionConfig
 
   /**
    * Creates a new TranscriptionService instance
+   * @param config - Configuration for the transcription service
    */
   constructor(config: Partial<TranscriptionConfig> = {}) {
-    this.client = new ElevenLabsClient()
+    // Get API key directly from Deno.env
+    const apiKey = Deno.env.get('ELEVENLABS_API_KEY')
+
+    // Initialize the client with the API key
+    this.client = new ElevenLabsClient({
+      apiKey,
+    })
+
     this.config = {
       modelId: config.modelId || 'scribe_v1',
       tagAudioEvents: config.tagAudioEvents ?? false,
@@ -23,6 +31,8 @@ export class TranscriptionService {
 
   /**
    * Transcribes an audio file using ElevenLabs API
+   * @param audioBlob - The audio blob to transcribe
+   * @returns The transcription text or null if failed
    */
   async transcribe(audioBlob: Blob): Promise<Result<string, Error>> {
     try {
@@ -47,6 +57,7 @@ export class TranscriptionService {
 
   /**
    * Updates the transcription configuration
+   * @param config - New configuration options
    */
   updateConfig(config: Partial<TranscriptionConfig>): void {
     this.config = {
