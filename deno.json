@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noImplicitThis": true
+  },
+  "lint": {
+    "include": ["*.ts", "src/**/*.ts"],
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "fmt": {
+    "include": ["*.ts", "src/**/*.ts"],
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "singleQuote": true,
+    "semiColons": false
+  },
+  "tasks": {
+    "start": "deno run --allow-read --allow-write --allow-net --allow-env main.ts",
+    "lint": "deno lint",
+    "fmt": "deno fmt",
+    "test": "deno test --allow-read --allow-write"
+  },
+  "imports": {
+    "elevenlabs": "npm:elevenlabs@1.52.0"
+  }
+}
