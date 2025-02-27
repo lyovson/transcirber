@@ -1,16 +1,15 @@
 import { ElevenLabsClient } from 'elevenlabs'
-import { TranscriptionConfig, TranscriptionResult } from '../types/index.ts'
+import { Result, TranscriptionConfig, TranscriptionResult } from '../types/index.ts'
 
 /**
  * Service for handling transcription operations
  */
 export class TranscriptionService {
-  private client: ElevenLabsClient
+  private readonly client: ElevenLabsClient
   private config: TranscriptionConfig
 
   /**
    * Creates a new TranscriptionService instance
-   * @param config - Configuration for the transcription service
    */
   constructor(config: Partial<TranscriptionConfig> = {}) {
     this.client = new ElevenLabsClient()
@@ -24,10 +23,8 @@ export class TranscriptionService {
 
   /**
    * Transcribes an audio file using ElevenLabs API
-   * @param audioBlob - The audio blob to transcribe
-   * @returns The transcription text or null if failed
    */
-  async transcribe(audioBlob: Blob): Promise<string | null> {
+  async transcribe(audioBlob: Blob): Promise<Result<string, Error>> {
     try {
       const transcription = (await this.client.speechToText.convert({
         file: audioBlob,
@@ -37,17 +34,19 @@ export class TranscriptionService {
         diarize: this.config.diarize,
       })) as TranscriptionResult
 
-      return transcription.text
+      return { ok: true, data: transcription.text }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       console.error('Error transcribing audio:', errorMessage)
-      return null
+      return {
+        ok: false,
+        error: error instanceof Error ? error : new Error(errorMessage),
+      }
     }
   }
 
   /**
    * Updates the transcription configuration
-   * @param config - New configuration options
    */
   updateConfig(config: Partial<TranscriptionConfig>): void {
     this.config = {

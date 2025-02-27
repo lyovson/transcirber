@@ -7,12 +7,11 @@ import { setupEnv } from './utils/env.ts'
  * Main application class for audio transcription
  */
 export class TranscriptionApp {
-  private fileService: FileService
-  private transcriptionService: TranscriptionService
+  private readonly fileService: FileService
+  private readonly transcriptionService: TranscriptionService
 
   /**
    * Creates a new TranscriptionApp instance
-   * @param config - Configuration for the transcription service
    */
   constructor(config: Partial<TranscriptionConfig> = {}) {
     this.fileService = new FileService()
@@ -21,7 +20,6 @@ export class TranscriptionApp {
 
   /**
    * Initializes the application
-   * @returns true if initialization was successful, false otherwise
    */
   async initialize(): Promise<boolean> {
     // Setup environment variables
@@ -60,19 +58,17 @@ export class TranscriptionApp {
         const audioBlob = await this.fileService.readAudioFile(file)
 
         // Transcribe the audio
-        const transcription = await this.transcriptionService.transcribe(
-          audioBlob,
-        )
+        const result = await this.transcriptionService.transcribe(audioBlob)
 
-        if (transcription) {
+        if (result.ok) {
           // Save individual transcription
-          await this.fileService.saveTranscription(transcription, file)
+          await this.fileService.saveTranscription(result.data, file)
 
           // Store for combined output
           const fileName = file.split('.')[0]
-          transcriptions.set(fileName, transcription)
+          transcriptions.set(fileName, result.data)
         } else {
-          console.log(`Failed to transcribe: ${file}`)
+          console.log(`Failed to transcribe: ${file} - ${result.error.message}`)
         }
       }
 
@@ -88,7 +84,6 @@ export class TranscriptionApp {
 
   /**
    * Updates the transcription configuration
-   * @param config - New configuration options
    */
   updateConfig(config: Partial<TranscriptionConfig>): void {
     this.transcriptionService.updateConfig(config)

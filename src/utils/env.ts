@@ -1,10 +1,9 @@
-import { EnvVars } from '../types/index.ts'
+import { EnvVars, Result } from '../types/index.ts'
 
 /**
  * Loads environment variables from .env file
- * @returns Environment variables object
  */
-export async function loadEnv(): Promise<Partial<EnvVars>> {
+export async function loadEnv(): Promise<Result<Partial<EnvVars>, Error>> {
   try {
     const text = await Deno.readTextFile('.env')
     const result: Record<string, string> = {}
@@ -14,25 +13,25 @@ export async function loadEnv(): Promise<Partial<EnvVars>> {
       if (key && value) result[key.trim()] = value.trim()
     })
 
-    return result as Partial<EnvVars>
+    return { ok: true, data: result as Partial<EnvVars> }
   } catch (error) {
-    console.error(
-      'Error loading .env file:',
-      error instanceof Error ? error.message : String(error),
-    )
-    return {}
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('Error loading .env file:', errorMessage)
+    return {
+      ok: false,
+      error: error instanceof Error ? error : new Error(errorMessage),
+    }
   }
 }
 
 /**
  * Sets up environment variables for the application
- * @returns true if successful, false otherwise
  */
 export async function setupEnv(): Promise<boolean> {
-  const env = await loadEnv()
+  const envResult = await loadEnv()
 
-  if (env && 'ELEVENLABS_API_KEY' in env && env.ELEVENLABS_API_KEY) {
-    Deno.env.set('ELEVENLABS_API_KEY', env.ELEVENLABS_API_KEY)
+  if (envResult.ok && 'ELEVENLABS_API_KEY' in envResult.data && envResult.data.ELEVENLABS_API_KEY) {
+    Deno.env.set('ELEVENLABS_API_KEY', envResult.data.ELEVENLABS_API_KEY)
     return true
   }
 
