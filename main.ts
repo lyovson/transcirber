@@ -1,18 +1,27 @@
 import { TranscriptionApp } from './src/app.ts'
+import { getChunkDuration, getLanguageCode } from './src/utils/env.ts'
 
 /**
  * Main entry point for the application
  */
 async function main(): Promise<void> {
-  console.log('Starting application...')
+  console.log('Starting audio transcription application...')
 
-  // Create and initialize the application
+  // Get chunk duration from environment or use default
+  const chunkDuration = getChunkDuration()
+  console.log(`Using ${chunkDuration}-second chunks for audio splitting`)
+
+  // Get language code from environment
+  const languageCode = getLanguageCode()
+  console.log(`Using language code: ${languageCode}`)
+
+  // Create and initialize the application with configured chunk duration
   const app = new TranscriptionApp({
     modelId: 'scribe_v1',
     tagAudioEvents: false,
-    languageCode: 'hy',
+    languageCode,
     diarize: false,
-  })
+  }, chunkDuration)
 
   console.log('App created, initializing...')
 
@@ -23,7 +32,7 @@ async function main(): Promise<void> {
     Deno.exit(1)
   }
 
-  console.log('App initialized successfully, running transcription...')
+  console.log('App initialized successfully, running transcription process...')
 
   // Run the transcription process
   await app.run()

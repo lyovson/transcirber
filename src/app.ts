@@ -1,5 +1,6 @@
-import { FileService } from './services/file-service.ts'
-import { TranscriptionService } from './services/transcription-service.ts'
+import { FileService } from './services/file-service/index.ts'
+import { TranscriptionService } from './services/transcription/index.ts'
+import { AudioSplitterService } from './services/audio-splitter/index.ts'
 import { TranscriptionConfig } from './types/index.ts'
 import { setupEnv } from './utils/env.ts'
 
@@ -8,14 +9,19 @@ import { setupEnv } from './utils/env.ts'
  */
 export class TranscriptionApp {
   private readonly fileService: FileService
-  private readonly transcriptionService: TranscriptionService
+  private transcriptionService: TranscriptionService | null = null
+  private readonly audioSplitterService: AudioSplitterService
+  private readonly chunkDuration: number
+  private readonly config: Partial<TranscriptionConfig>
 
   /**
    * Creates a new TranscriptionApp instance
    */
-  constructor(config: Partial<TranscriptionConfig> = {}) {
+  constructor(config: Partial<TranscriptionConfig> = {}, chunkDuration = 30) {
     this.fileService = new FileService()
-    this.transcriptionService = new TranscriptionService(config)
+    this.audioSplitterService = new AudioSplitterService()
+    this.chunkDuration = chunkDuration
+    this.config = config
   }
 
   /**
@@ -23,8 +29,11 @@ export class TranscriptionApp {
    */
   async initialize(): Promise<boolean> {
     // Setup environment variables
-    const envSetup = await setupEnv()
+    const envSetup = setupEnv()
     if (!envSetup) return false
+
+    // Initialize the transcription service after environment variables are set up
+    this.transcriptionService = new TranscriptionService(this.config)
 
     // Ensure directories exist
     await this.fileService.ensureDirectories()
@@ -37,6 +46,11 @@ export class TranscriptionApp {
    */
   async run(): Promise<void> {
     try {
+      // Ensure the transcription service is initialized
+      if (!this.transcriptionService) {
+        throw new Error('TranscriptionService not initialized. Call initialize() first.')
+      }
+
       // Get audio files
       const audioFiles = await this.fileService.getAudioFiles()
 
@@ -54,22 +68,67 @@ export class TranscriptionApp {
       for (const file of audioFiles) {
         console.log(`Processing: ${file}`)
 
-        // Read and convert the audio file
-        const audioBlob = await this.fileService.readAudioFile(file)
+        // Get full path to input file
+        const inputFilePath = this.fileService.getInputFilePath(file)
 
-        // Transcribe the audio
-        const result = await this.transcriptionService.transcribe(audioBlob)
+        // Get temp directory for chunks
+        const tempDir = this.fileService.getTempDir()
 
-        if (result.ok) {
-          // Save individual transcription
-          await this.fileService.saveTranscription(result.data, file)
+        // Split the audio file into chunks
+        console.log(`Splitting audio file into ${this.chunkDuration}-second chunks...`)
+        const splitResult = await this.audioSplitterService.splitAudio({
+          inputFile: inputFilePath,
+          outputDir: tempDir,
+          segmentDuration: this.chunkDuration,
+          filePrefix: `chunk_${file.split('.')[0]}`,
+        })
 
-          // Store for combined output
-          const fileName = file.split('.')[0]
-          transcriptions.set(fileName, result.data)
-        } else {
-          console.log(`Failed to transcribe: ${file} - ${result.error.message}`)
+        if (!splitResult.ok) {
+          console.error(`Failed to split audio file: ${splitResult.error.message}`)
+          continue
         }
+
+        const audioChunks = splitResult.data
+        console.log(`Split audio into ${audioChunks.length} chunks.`)
+
+        // Process each chunk
+        const chunkTranscriptions: string[] = []
+
+        for (const [index, chunkPath] of audioChunks.entries()) {
+          console.log(`Transcribing chunk ${index + 1}/${audioChunks.length}...`)
+
+          // Read the audio chunk
+          const audioResult = await this.fileService.readAudioFileFromPath(chunkPath)
+
+          if (!audioResult.ok) {
+            console.error(`Failed to read audio chunk: ${audioResult.error.message}`)
+            continue
+          }
+
+          // Transcribe the chunk
+          const transcriptionResult = await this.transcriptionService.transcribe(audioResult.data)
+
+          if (transcriptionResult.ok) {
+            chunkTranscriptions.push(transcriptionResult.data)
+          } else {
+            console.error(`Failed to transcribe chunk: ${transcriptionResult.error.message}`)
+          }
+        }
+
+        // Combine chunk transcriptions
+        if (chunkTranscriptions.length > 0) {
+          const combinedText = this.fileService.combineChunkTranscriptions(chunkTranscriptions)
+
+          // Save the combined transcription
+          await this.fileService.saveTranscription(combinedText, file)
+
+          // Store for final output
+          const fileName = file.split('.')[0]
+          transcriptions.set(fileName, combinedText)
+        }
+
+        // Clean up temporary files
+        await this.fileService.cleanupTempFiles()
       }
 
       // Combine all transcriptions into a single file
@@ -86,6 +145,8 @@ export class TranscriptionApp {
    * Updates the transcription configuration
    */
   updateConfig(config: Partial<TranscriptionConfig>): void {
-    this.transcriptionService.updateConfig(config)
+    if (this.transcriptionService) {
+      this.transcriptionService.updateConfig(config)
+    }
   }
 }

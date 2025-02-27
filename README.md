@@ -5,6 +5,7 @@ A simple tool to transcribe audio files using the ElevenLabs API, built with Den
 ## Features
 
 - Transcribe audio files in multiple formats (MP3, WAV, M4A, OGG, FLAC)
+- **Automatic splitting of long audio files into 30-second chunks**
 - Armenian language transcription support
 - Batch processing of multiple files
 - Combined output in markdown format
@@ -12,10 +13,19 @@ A simple tool to transcribe audio files using the ElevenLabs API, built with Den
 - Functional programming approach with immutability
 - Modular architecture for maintainability
 
+## Requirements
+
+- [Deno](https://deno.com/) v2.0+
+- [FFmpeg](https://ffmpeg.org/) installed and available in your PATH
+- ElevenLabs API key
+
 ## Setup
 
 1. Make sure you have [Deno](https://deno.com/) installed (v2.0+ recommended)
-2. No need to install dependencies - Deno handles them automatically
+2. Install FFmpeg:
+   - **macOS**: `brew install ffmpeg`
+   - **Windows**: Download from [ffmpeg.org](https://ffmpeg.org/download.html) or use [Chocolatey](https://chocolatey.org/): `choco install ffmpeg`
+   - **Linux**: `sudo apt install ffmpeg` (Ubuntu/Debian) or `sudo dnf install ffmpeg` (Fedora)
 3. Create a `.env` file with your ElevenLabs API key (use `.env.example` as a template):
    ```
    ELEVENLABS_API_KEY=your_api_key_here
@@ -28,10 +38,23 @@ A simple tool to transcribe audio files using the ElevenLabs API, built with Den
    ```
    deno task start
    ```
-   This will automatically load environment variables from your `.env` file.
+   This will automatically:
+   - Load environment variables from your `.env` file
+   - Split audio files into 30-second chunks
+   - Transcribe each chunk
+   - Combine the transcriptions
 3. Transcribed text files will be saved in the `outputs` folder:
    - Individual transcriptions with the same filename but with a `.txt` extension
-   - A combined file named `combined_transcription.txt` containing all transcriptions
+   - A combined file named `combined_transcription.md` containing all transcriptions
+
+## How It Works
+
+1. The application scans the `inputs` directory for audio files
+2. Each audio file is split into 30-second chunks using FFmpeg
+3. Each chunk is transcribed using the ElevenLabs API
+4. The transcriptions are combined in the correct order
+5. Results are saved as individual files and a combined markdown file
+6. Temporary files are automatically cleaned up
 
 ## Project Structure
 
@@ -41,8 +64,15 @@ The project follows a modular architecture:
 ├── src/
 │   ├── app.ts                 # Main application class
 │   ├── services/
-│   │   ├── file-service.ts    # File operations service
-│   │   └── transcription-service.ts # Transcription service
+│   │   ├── file-service/      # File operations service
+│   │   │   ├── index.ts
+│   │   │   └── test.ts        # File service tests
+│   │   ├── transcription/     # Transcription service
+│   │   │   ├── index.ts
+│   │   │   └── test.ts        # Transcription service tests
+│   │   └── audio-splitter/    # Audio splitting service
+│   │       ├── index.ts
+│   │       └── test.ts        # Audio splitter tests
 │   ├── types/
 │   │   └── index.ts           # Type definitions
 │   └── utils/
@@ -55,7 +85,6 @@ The project follows a modular architecture:
 ├── deno.json                  # Deno configuration
 ├── .env.example               # Example environment variables
 ├── .gitignore                 # Git ignore file
-├── LICENSE                    # MIT License
 ├── CHANGELOG.md               # Project changelog
 └── .env                       # Environment variables (not committed)
 ```
@@ -68,21 +97,27 @@ This project uses Deno's built-in tools:
 - **Formatting**: `deno task fmt`
 - **Testing**: `deno task test`
 
-### Environment Variables
+### Testing
 
-The application uses Deno's built-in environment variable handling:
+The project includes comprehensive tests for all services:
 
-- Environment variables are loaded from the `.env` file using the `--env-file` flag
-- The `setupEnv` utility function ensures all variables are properly set
-- All tasks in `deno.json` are configured to use the `.env` file automatically
+- **Unit Tests**: Each service has its own test file
+  - `src/services/file-service/test.ts`
+  - `src/services/transcription/test.ts`
+  - `src/services/audio-splitter/test.ts`
+- **Integration Tests**: `main.test.ts` tests the application as a whole
 
-### Git Setup
+Run all tests with:
 
-The project includes:
+```bash
+deno task test
+```
 
-- A comprehensive `.gitignore` file to exclude sensitive and generated files
-- GitHub Actions workflow for continuous integration
-- `.env.example` template for required environment variables
+Or run specific tests:
+
+```bash
+deno test src/services/file-service/test.ts
+```
 
 ## Supported Audio Formats
 
@@ -116,21 +151,12 @@ If you encounter any issues:
 
 1. Ensure your ElevenLabs API key is valid and has sufficient credits
 2. Check that your audio files are in a supported format
-3. Verify that the audio files are not corrupted or empty
-4. Run with `--log-level=debug` for more detailed logs:
+3. Verify that FFmpeg is installed and available in your PATH
+4. Verify that the audio files are not corrupted or empty
+5. Run with `--log-level=debug` for more detailed logs:
    ```
-   deno run --allow-read --allow-write --allow-net --allow-env --log-level=debug main.ts
+   deno run --allow-read --allow-write --allow-net --allow-env --allow-run --env-file=.env --log-level=debug main.ts
    ```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## License
 

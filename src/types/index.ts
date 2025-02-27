@@ -20,6 +20,10 @@ export type TranscriptionConfig = {
  */
 export type EnvVars = {
   ELEVENLABS_API_KEY: string
+  CHUNK_DURATION?: string
+  INPUT_DIR?: string
+  OUTPUT_DIR?: string
+  LANGUAGE?: string
 }
 
 /**

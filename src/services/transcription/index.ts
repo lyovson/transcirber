@@ -1,5 +1,5 @@
 import { ElevenLabsClient } from 'elevenlabs'
-import { Result, TranscriptionConfig, TranscriptionResult } from '../types/index.ts'
+import { Result, TranscriptionConfig, TranscriptionResult } from 'types'
 
 /**
  * Service for handling transcription operations
@@ -24,7 +24,7 @@ export class TranscriptionService {
     this.config = {
       modelId: config.modelId || 'scribe_v1',
       tagAudioEvents: config.tagAudioEvents ?? false,
-      languageCode: config.languageCode || 'hy',
+      languageCode: config.languageCode || 'en',
       diarize: config.diarize ?? false,
     }
   }
