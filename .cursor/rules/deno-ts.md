@@ -24,6 +24,7 @@ Globs:
 - Implement proper error handling with descriptive messages
 - Use Deno's built-in testing framework with comprehensive test coverage
 - Leverage Deno's native TypeScript support without transpilation
+- Run 'deno test' and 'deno lint' after each iteration to see if nothing got broken. Run 'deno fmt' in the end.
 
 ## Code Structure
 

@@ -43,6 +43,7 @@ desktop.ini
 *.tmp
 *.temp
 .cache/
+temp/
 
 # Test coverage
 coverage/
@@ -54,4 +55,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Audiocutter
 .audiocutter/
+audiocutter/

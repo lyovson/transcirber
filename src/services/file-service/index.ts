@@ -7,9 +7,9 @@ import { Result } from 'types'
  */
 export class FileService {
   private readonly inputDir: string
-  private readonly outputDir: string
-  private readonly tempDir: string
-  private readonly combinedOutputFile: string
+  private outputDir: string
+  private tempDir: string
+  private combinedOutputFile: string
 
   /**
    * Creates a new FileService instance
@@ -33,6 +33,42 @@ export class FileService {
     await ensureDir(this.inputDir)
     await ensureDir(this.outputDir)
     await ensureDir(this.tempDir)
+  }
+
+  /**
+   * Checks if a file exists at the given path
+   * @param filePath - Path to check
+   * @returns True if the file exists, false otherwise
+   */
+  async fileExists(filePath: string): Promise<boolean> {
+    try {
+      const stat = await Deno.stat(filePath)
+      return stat.isFile
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        return false
+      }
+      throw error
+    }
+  }
+
+  /**
+   * Sets a custom output directory
+   * @param dir - New output directory path
+   */
+  setOutputDir(dir: string): void {
+    this.outputDir = dir
+    // Update dependent paths
+    this.tempDir = join(this.outputDir, 'temp')
+    this.combinedOutputFile = join(this.outputDir, 'combined_transcription.md')
+    // Ensure the new directory exists
+    ensureDir(this.outputDir).catch((error) => {
+      console.error(`Error creating output directory: ${error}`)
+    })
+    // Also ensure temp directory exists
+    ensureDir(this.tempDir).catch((error) => {
+      console.error(`Error creating temp directory: ${error}`)
+    })
   }
 
   /**
@@ -98,20 +134,58 @@ export class FileService {
   }
 
   /**
-   * Saves transcription to individual file
+   * Saves the transcription to a file
    * @param text - Transcription text
    * @param fileName - Original audio file name
+   * @param format - Output format (txt or md)
    * @returns Path to the saved file
    */
-  async saveTranscription(text: string, fileName: string): Promise<string> {
+  async saveTranscription(text: string, fileName: string, format = 'txt'): Promise<string> {
     const baseName = parse(fileName).name
-    const outputFileName = `${baseName}.txt`
+    const outputFileName = `${baseName}.${format}`
     const outputPath = join(this.outputDir, outputFileName)
 
-    await Deno.writeTextFile(outputPath, text)
+    // Format the text based on the requested format
+    let formattedText = text
+
+    if (format === 'md') {
+      // Format as Markdown
+      formattedText = this.formatAsMarkdown(text, baseName)
+    }
+
+    await Deno.writeTextFile(outputPath, formattedText)
     console.log(`Transcription saved to: ${outputPath}`)
 
     return outputPath
+  }
+
+  /**
+   * Formats transcription text as Markdown
+   * @param text - Raw transcription text
+   * @param title - Title for the Markdown document
+   * @returns Formatted Markdown text
+   */
+  private formatAsMarkdown(text: string, title: string): string {
+    // Create a title from the filename
+    const formattedTitle = title.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+
+    // Format the text as Markdown
+    let markdown = `# Transcription: ${formattedTitle}\n\n`
+
+    // Add timestamp
+    const now = new Date()
+    markdown += `*Transcribed on ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}*\n\n`
+
+    // Add the transcription text, ensuring paragraphs are properly formatted
+    const paragraphs = text.split('\n\n')
+
+    for (const paragraph of paragraphs) {
+      if (paragraph.trim()) {
+        markdown += `${paragraph.trim()}\n\n`
+      }
+    }
+
+    return markdown
   }
 
   /**

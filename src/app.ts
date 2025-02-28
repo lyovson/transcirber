@@ -5,6 +5,16 @@ import { TranscriptionConfig } from './types/index.ts'
 import { setupEnv } from './utils/env.ts'
 
 /**
+ * Result type for the transcription process
+ */
+export type TranscriptionResult = {
+  success: boolean
+  data?: string
+  error?: string
+  outputPath?: string
+}
+
+/**
  * Main application class for audio transcription
  */
 export class TranscriptionApp {
@@ -17,7 +27,7 @@ export class TranscriptionApp {
   /**
    * Creates a new TranscriptionApp instance
    */
-  constructor(config: Partial<TranscriptionConfig> = {}, chunkDuration = 30) {
+  constructor(config: Partial<TranscriptionConfig> = {}, chunkDuration = 120) {
     this.fileService = new FileService()
     this.audioSplitterService = new AudioSplitterService()
     this.chunkDuration = chunkDuration
@@ -43,101 +53,119 @@ export class TranscriptionApp {
 
   /**
    * Runs the transcription process
+   * @param inputFilePath - Path to the input audio file
+   * @param outputDir - Optional output directory for the transcription
+   * @returns A TranscriptionResult object
    */
-  async run(): Promise<void> {
+  async run(inputFilePath: string, outputDir?: string): Promise<TranscriptionResult> {
     try {
       // Ensure the transcription service is initialized
       if (!this.transcriptionService) {
-        throw new Error('TranscriptionService not initialized. Call initialize() first.')
+        return {
+          success: false,
+          error: 'TranscriptionService not initialized. Call initialize() first.',
+        }
       }
 
-      // Get audio files
-      const audioFiles = await this.fileService.getAudioFiles()
-
-      if (audioFiles.length === 0) {
-        console.log('No audio files found in the inputs directory.')
-        return
+      // Check if the file exists
+      const fileExists = await this.fileService.fileExists(inputFilePath)
+      if (!fileExists) {
+        return {
+          success: false,
+          error: `Input file not found: ${inputFilePath}`,
+        }
       }
 
-      console.log(`Found ${audioFiles.length} audio files to transcribe.`)
+      console.log(`Processing: ${inputFilePath}`)
 
-      // Store all transcriptions for combining later
-      const transcriptions = new Map<string, string>()
+      // Set output directory if provided
+      if (outputDir) {
+        this.fileService.setOutputDir(outputDir)
+      }
 
-      // Process each audio file
-      for (const file of audioFiles) {
-        console.log(`Processing: ${file}`)
+      // Get temp directory for chunks
+      const tempDir = this.fileService.getTempDir()
 
-        // Get full path to input file
-        const inputFilePath = this.fileService.getInputFilePath(file)
+      // Split the audio file into chunks
+      console.log(`Splitting audio file into ${this.chunkDuration}-second chunks...`)
+      const splitResult = await this.audioSplitterService.splitAudio({
+        inputFile: inputFilePath,
+        outputDir: tempDir,
+        segmentDuration: this.chunkDuration,
+        filePrefix: `chunk_${inputFilePath.split('/').pop()?.split('.')[0]}`,
+      })
 
-        // Get temp directory for chunks
-        const tempDir = this.fileService.getTempDir()
+      if (!splitResult.ok) {
+        return {
+          success: false,
+          error: `Failed to split audio file: ${splitResult.error.message}`,
+        }
+      }
 
-        // Split the audio file into chunks
-        console.log(`Splitting audio file into ${this.chunkDuration}-second chunks...`)
-        const splitResult = await this.audioSplitterService.splitAudio({
-          inputFile: inputFilePath,
-          outputDir: tempDir,
-          segmentDuration: this.chunkDuration,
-          filePrefix: `chunk_${file.split('.')[0]}`,
-        })
+      const audioChunks = splitResult.data
+      console.log(`Split audio into ${audioChunks.length} chunks.`)
 
-        if (!splitResult.ok) {
-          console.error(`Failed to split audio file: ${splitResult.error.message}`)
+      // Process each chunk
+      const chunkTranscriptions: string[] = []
+
+      for (const [index, chunkPath] of audioChunks.entries()) {
+        console.log(`Transcribing chunk ${index + 1}/${audioChunks.length}...`)
+
+        // Read the audio chunk
+        const audioResult = await this.fileService.readAudioFileFromPath(chunkPath)
+
+        if (!audioResult.ok) {
+          console.error(`Failed to read audio chunk: ${audioResult.error.message}`)
           continue
         }
 
-        const audioChunks = splitResult.data
-        console.log(`Split audio into ${audioChunks.length} chunks.`)
+        // Transcribe the chunk
+        const transcriptionResult = await this.transcriptionService.transcribe(audioResult.data)
 
-        // Process each chunk
-        const chunkTranscriptions: string[] = []
-
-        for (const [index, chunkPath] of audioChunks.entries()) {
-          console.log(`Transcribing chunk ${index + 1}/${audioChunks.length}...`)
-
-          // Read the audio chunk
-          const audioResult = await this.fileService.readAudioFileFromPath(chunkPath)
-
-          if (!audioResult.ok) {
-            console.error(`Failed to read audio chunk: ${audioResult.error.message}`)
-            continue
-          }
-
-          // Transcribe the chunk
-          const transcriptionResult = await this.transcriptionService.transcribe(audioResult.data)
-
-          if (transcriptionResult.ok) {
-            chunkTranscriptions.push(transcriptionResult.data)
-          } else {
-            console.error(`Failed to transcribe chunk: ${transcriptionResult.error.message}`)
-          }
+        if (transcriptionResult.ok) {
+          chunkTranscriptions.push(transcriptionResult.data)
+        } else {
+          console.error(`Failed to transcribe chunk: ${transcriptionResult.error.message}`)
         }
-
-        // Combine chunk transcriptions
-        if (chunkTranscriptions.length > 0) {
-          const combinedText = this.fileService.combineChunkTranscriptions(chunkTranscriptions)
-
-          // Save the combined transcription
-          await this.fileService.saveTranscription(combinedText, file)
-
-          // Store for final output
-          const fileName = file.split('.')[0]
-          transcriptions.set(fileName, combinedText)
-        }
-
-        // Clean up temporary files
-        await this.fileService.cleanupTempFiles()
       }
 
-      // Combine all transcriptions into a single file
-      await this.fileService.combineTranscriptions(transcriptions)
+      // Combine chunk transcriptions
+      if (chunkTranscriptions.length === 0) {
+        return {
+          success: false,
+          error: 'Failed to transcribe any chunks',
+        }
+      }
+
+      const combinedText = this.fileService.combineChunkTranscriptions(chunkTranscriptions)
+
+      // Save the transcription in both formats
+      const fileName = inputFilePath.split('/').pop() || 'transcription.txt'
+
+      // Save as plain text
+      await this.fileService.saveTranscription(combinedText, fileName, 'txt')
+
+      // Save as Markdown
+      const mdOutputPath = await this.fileService.saveTranscription(combinedText, fileName, 'md')
+
+      // Clean up temporary files
+      await this.fileService.cleanupTempFiles()
 
       console.log('Transcription process completed.')
+
+      return {
+        success: true,
+        data: combinedText,
+        outputPath: mdOutputPath, // Return the Markdown file path
+      }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error('Error processing audio files:', errorMessage)
+      console.error('Error processing audio file:', errorMessage)
+
+      return {
+        success: false,
+        error: errorMessage,
+      }
     }
   }
 

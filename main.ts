@@ -1,46 +1,65 @@
-import { TranscriptionApp } from './src/app.ts'
-import { getChunkDuration, getLanguageCode } from './src/utils/env.ts'
-
-/**
- * Main entry point for the application
- */
-async function main(): Promise<void> {
-  console.log('Starting audio transcription application...')
-
-  // Get chunk duration from environment or use default
-  const chunkDuration = getChunkDuration()
-  console.log(`Using ${chunkDuration}-second chunks for audio splitting`)
-
-  // Get language code from environment
-  const languageCode = getLanguageCode()
-  console.log(`Using language code: ${languageCode}`)
-
-  // Create and initialize the application with configured chunk duration
-  const app = new TranscriptionApp({
-    modelId: 'scribe_v1',
-    tagAudioEvents: false,
-    languageCode,
-    diarize: false,
-  }, chunkDuration)
-
-  console.log('App created, initializing...')
-
-  // Initialize the application
-  const initialized = await app.initialize()
-  if (!initialized) {
-    console.error('Failed to initialize the application')
+// Set up process termination handlers
+function setupProcessHandlers() {
+  // Handle uncaught exceptions
+  globalThis.addEventListener('error', (event) => {
+    console.error('Uncaught error:', event.error)
     Deno.exit(1)
-  }
+  })
 
-  console.log('App initialized successfully, running transcription process...')
+  // Handle unhandled promise rejections
+  globalThis.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason)
+    Deno.exit(1)
+  })
 
-  // Run the transcription process
-  await app.run()
+  // Handle SIGINT (Ctrl+C)
+  Deno.addSignalListener('SIGINT', () => {
+    console.log('SIGINT received, shutting down...')
+    Deno.exit(0)
+  })
+
+  // Handle SIGTERM
+  Deno.addSignalListener('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down...')
+    Deno.exit(0)
+  })
 }
 
-// Run the main function
-await main().catch((error) => {
-  const errorMessage = error instanceof Error ? error.message : String(error)
-  console.error('Fatal error:', errorMessage)
-  Deno.exit(1)
-})
+// Set up process handlers
+setupProcessHandlers()
+
+// Check if the --ui flag is provided
+const useUI = Deno.args.includes('--ui')
+
+if (useUI) {
+  try {
+    // Dynamically import the UI application only when needed
+    const { TranscriberUI } = await import('./src/ui-app.ts')
+    const ui = TranscriberUI.getInstance()
+
+    try {
+      await ui.run()
+      console.log('UI application completed successfully')
+      Deno.exit(0)
+    } catch (error) {
+      console.error('Error running UI application:', error)
+      Deno.exit(1)
+    }
+  } catch (error) {
+    console.error('Error loading UI application:', error)
+    console.error('Make sure you have the required dependencies installed.')
+    console.error('Try running without the --ui flag to use the CLI version.')
+    Deno.exit(1)
+  }
+} else {
+  // Run the CLI application
+  try {
+    const { runCLI } = await import('./src/cli-app.ts')
+    await runCLI()
+    console.log('CLI application completed successfully')
+    Deno.exit(0)
+  } catch (error) {
+    console.error('Error running CLI application:', error)
+    Deno.exit(1)
+  }
+}

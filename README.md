@@ -1,163 +1,134 @@
-# Audio Transcriber
+# Transcriber
 
-A simple tool to transcribe audio files using the ElevenLabs API, built with Deno and TypeScript.
+A modern, user-friendly audio transcription application built with Deno.
 
 ## Features
 
-- Transcribe audio files in multiple formats (MP3, WAV, M4A, OGG, FLAC)
-- **Automatic splitting of long audio files into 30-second chunks**
-- Armenian language transcription support
-- Batch processing of multiple files
-- Combined output in markdown format
-- Type-safe implementation with TypeScript
-- Functional programming approach with immutability
-- Modular architecture for maintainability
+- Transcribe audio files to text
+- Split audio into manageable chunks for better transcription accuracy
+- Customize language, chunk size, and output location
+- Modern dark mode UI
+- Export transcriptions in various formats (TXT, SRT, VTT)
+- Support for local and cloud-based transcription models
 
 ## Requirements
 
-- [Deno](https://deno.com/) v2.0+
-- [FFmpeg](https://ffmpeg.org/) installed and available in your PATH
-- ElevenLabs API key
+- [Deno](https://deno.land/) v1.37.0 or higher
+- FFmpeg (for audio splitting)
 
-## Setup
+## Installation
 
-1. Make sure you have [Deno](https://deno.com/) installed (v2.0+ recommended)
-2. Install FFmpeg:
-   - **macOS**: `brew install ffmpeg`
-   - **Windows**: Download from [ffmpeg.org](https://ffmpeg.org/download.html) or use [Chocolatey](https://chocolatey.org/): `choco install ffmpeg`
-   - **Linux**: `sudo apt install ffmpeg` (Ubuntu/Debian) or `sudo dnf install ffmpeg` (Fedora)
-3. Create a `.env` file with your ElevenLabs API key (use `.env.example` as a template):
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/yourusername/transcriber.git
+   cd transcriber
    ```
-   ELEVENLABS_API_KEY=your_api_key_here
+
+2. Install FFmpeg if you don't have it already:
+   - **macOS**: `brew install ffmpeg`
+   - **Linux**: `sudo apt install ffmpeg`
+   - **Windows**: Download from [ffmpeg.org](https://ffmpeg.org/download.html) or use Chocolatey: `choco install ffmpeg`
+
+3. Create a `.env` file in the project root (optional):
+   ```
+   INPUT_DIR=./inputs
+   OUTPUT_DIR=./outputs
+   LANGUAGE_CODE=en
+   CHUNK_DURATION=120
    ```
 
 ## Usage
 
-1. Place your audio files in the `inputs` folder
-2. Run the transcription script:
-   ```
-   deno task start
-   ```
-   This will automatically:
-   - Load environment variables from your `.env` file
-   - Split audio files into 30-second chunks
-   - Transcribe each chunk
-   - Combine the transcriptions
-3. Transcribed text files will be saved in the `outputs` folder:
-   - Individual transcriptions with the same filename but with a `.txt` extension
-   - A combined file named `combined_transcription.md` containing all transcriptions
+### Using Deno Tasks
 
-## How It Works
+The application provides several convenient tasks for running different versions:
 
-1. The application scans the `inputs` directory for audio files
-2. Each audio file is split into 30-second chunks using FFmpeg
-3. Each chunk is transcribed using the ElevenLabs API
-4. The transcriptions are combined in the correct order
-5. Results are saved as individual files and a combined markdown file
-6. Temporary files are automatically cleaned up
+```bash
+# Run the default application (CLI mode)
+deno task start
 
-## Project Structure
+# Run the UI version
+deno task start:ui
 
-The project follows a modular architecture:
+# Run the CLI version explicitly
+deno task start:cli
 
+# Development mode with file watching (auto-reload on changes)
+deno task dev        # Default mode
+deno task dev:ui     # UI mode with auto-reload
+deno task dev:cli    # CLI mode with auto-reload
 ```
-├── src/
-│   ├── app.ts                 # Main application class
-│   ├── services/
-│   │   ├── file-service/      # File operations service
-│   │   │   ├── index.ts
-│   │   │   └── test.ts        # File service tests
-│   │   ├── transcription/     # Transcription service
-│   │   │   ├── index.ts
-│   │   │   └── test.ts        # Transcription service tests
-│   │   └── audio-splitter/    # Audio splitting service
-│   │       ├── index.ts
-│   │       └── test.ts        # Audio splitter tests
-│   ├── types/
-│   │   └── index.ts           # Type definitions
-│   └── utils/
-│       └── env.ts             # Environment utilities
-├── .github/
-│   └── workflows/
-│   │   └── deno.yml           # GitHub Actions workflow
-├── main.ts                    # Entry point
-├── main.test.ts               # Tests
-├── deno.json                  # Deno configuration
-├── .env.example               # Example environment variables
-├── .gitignore                 # Git ignore file
-├── CHANGELOG.md               # Project changelog
-└── .env                       # Environment variables (not committed)
+
+### Command Line Interface
+
+Run the application with a specific audio file:
+
+```bash
+deno run --allow-read --allow-write --allow-net --allow-env --allow-run --env-file=.env main.ts path/to/your/audio-file.mp3
+```
+
+### Graphical User Interface
+
+Run the application with the UI:
+
+```bash
+deno run --allow-read --allow-write --allow-net --allow-env --allow-run --env-file=.env main.ts --ui
 ```
 
 ## Development
 
-This project uses Deno's built-in tools:
+### Project Structure
 
-- **Linting**: `deno task lint`
-- **Formatting**: `deno task fmt`
-- **Testing**: `deno task test`
+```
+transcriber/
+├── main.ts                 # Entry point
+├── src/
+│   ├── app.ts              # Main application logic
+│   ├── cli-app.ts          # CLI application
+│   ├── ui-app.ts           # UI application
+│   ├── services/           # Core services
+│   │   ├── audio-splitter/ # Audio splitting service
+│   │   ├── file-service/   # File operations
+│   │   └── transcription/  # Transcription service
+│   ├── types/              # TypeScript type definitions
+│   ├── ui/                 # UI components
+│   │   ├── index.html      # Main HTML file
+│   │   ├── styles/         # CSS styles
+│   │   └── scripts/        # JavaScript files
+│   └── utils/              # Utility functions
+└── static/                 # Static assets
+    ├── fonts/              # Font files
+    └── icons/              # Icon files
+```
 
-### Testing
-
-The project includes comprehensive tests for all services:
-
-- **Unit Tests**: Each service has its own test file
-  - `src/services/file-service/test.ts`
-  - `src/services/transcription/test.ts`
-  - `src/services/audio-splitter/test.ts`
-- **Integration Tests**: `main.test.ts` tests the application as a whole
-
-Run all tests with:
+### Running Tests
 
 ```bash
 deno task test
 ```
 
-Or run specific tests:
+### Formatting and Linting
 
 ```bash
-deno test src/services/file-service/test.ts
+deno task fmt
+deno task lint
 ```
 
-## Supported Audio Formats
+### Building Executables
 
-- MP3 (.mp3)
-- WAV (.wav)
-- M4A (.m4a)
-- OGG (.ogg)
-- FLAC (.flac)
+You can build standalone executables for different platforms:
 
-## API Integration
+```bash
+# Build for all platforms
+deno task build
 
-The project uses the ElevenLabs API for audio transcription. The integration is handled through the `TranscriptionService` class, which:
-
-1. Prepares audio files for transcription
-2. Sends requests to the ElevenLabs API
-3. Processes and formats the transcription results
-4. Handles errors and edge cases
-
-## Error Handling
-
-The project implements a functional approach to error handling:
-
-- Errors are treated as values rather than exceptions
-- Functions return result objects with success/error states
-- Clear error messages for troubleshooting
-- Graceful degradation when possible
-
-## Troubleshooting
-
-If you encounter any issues:
-
-1. Ensure your ElevenLabs API key is valid and has sufficient credits
-2. Check that your audio files are in a supported format
-3. Verify that FFmpeg is installed and available in your PATH
-4. Verify that the audio files are not corrupted or empty
-5. Run with `--log-level=debug` for more detailed logs:
-   ```
-   deno run --allow-read --allow-write --allow-net --allow-env --allow-run --env-file=.env --log-level=debug main.ts
-   ```
+# Build for specific platforms
+deno task build:macos      # macOS (Intel)
+deno task build:macos-arm  # macOS (Apple Silicon)
+deno task build:windows    # Windows
+deno task build:linux      # Linux
+```
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT
