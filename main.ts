@@ -34,7 +34,7 @@ const useUI = Deno.args.includes('--ui')
 if (useUI) {
   try {
     // Dynamically import the UI application only when needed
-    const { TranscriberUI } = await import('./src/ui-app.ts')
+    const { TranscriberUI } = await import('./src/app/ui/index.ts')
     const ui = TranscriberUI.getInstance()
 
     try {
@@ -54,7 +54,7 @@ if (useUI) {
 } else {
   // Run the CLI application
   try {
-    const { runCLI } = await import('./src/cli-app.ts')
+    const { runCLI } = await import('./src/app/cli/index.ts')
     await runCLI()
     console.log('CLI application completed successfully')
     Deno.exit(0)

@@ -135,6 +135,21 @@ async function getLanguageName(code) {
   }
 }
 
+/**
+ * Get the default output folder
+ * @returns {Promise<Object>} Object containing the default folder
+ */
+async function getDefaultFolder() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/getDefaultFolder`);
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error getting default folder:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Export the bridge functions
 window.Bridge = {
   selectOutputFolder,
@@ -143,4 +158,5 @@ window.Bridge = {
   transcribeAudio,
   getAvailableLanguages,
   getLanguageName,
+  getDefaultFolder,
 };

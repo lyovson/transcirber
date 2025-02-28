@@ -1,5 +1,5 @@
-import { TranscriptionApp } from './app.ts'
-import { getChunkDuration, getLanguageCode } from './utils/env.ts'
+import { TranscriptionApp } from '../index.ts'
+import { getChunkDuration, getLanguageCode } from '../../utils/env.ts'
 
 /**
  * Run the CLI application

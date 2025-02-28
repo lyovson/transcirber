@@ -5,10 +5,6 @@ const filePreview = document.getElementById('file-preview');
 const fileNameElement = document.getElementById('file-name');
 const fileSizeElement = document.getElementById('file-size');
 const languageSelect = document.getElementById('language-select');
-const chunkSizeSlider = document.getElementById('chunk-size');
-const chunkSizeValue = document.getElementById('chunk-size-value');
-const outputPathElement = document.getElementById('output-path');
-const browseOutputButton = document.getElementById('browse-output');
 const transcribeButton = document.getElementById('transcribe-button');
 const progressElement = document.getElementById('progress');
 const outputSection = document.getElementById('output-section');
@@ -29,8 +25,8 @@ const successMessageElement = document.getElementById('success-message');
 // State
 let currentFile = null;
 let currentFileData = null;
-let currentLanguage = 'en';
-let outputFolder = '';
+let currentLanguage = 'hy';
+let outputFolder = ''; // Will be set to Downloads folder automatically
 let transcriptionInProgress = false;
 let transcriptionResult = '';
 let settings = {
@@ -47,14 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Set up event listeners
   setupEventListeners();
 
-  // Update chunk size display
-  updateChunkSizeDisplay();
-
   // Load languages
   loadLanguages();
 
-  // Load output locations
-  loadOutputLocations();
+  // Load default output location (Downloads folder)
+  loadDefaultOutputFolder();
 });
 
 // Event Listeners
@@ -77,21 +70,14 @@ function setupEventListeners() {
   // File Input
   fileInput.addEventListener('change', handleFiles);
 
-  // Chunk Size Slider
-  chunkSizeSlider.addEventListener('input', updateChunkSizeDisplay);
-
   // Browse Button
   document.getElementById('browse-button').addEventListener('click', () => {
     fileInput.click();
   });
 
-  // Output folder selection
-  browseOutputButton.addEventListener('click', showFolderSelector);
-
   // Language selection
   languageSelect.addEventListener('change', (e) => {
     currentLanguage = e.target.value;
-    updateLanguageDisplay();
   });
 
   // Transcribe Button
@@ -191,8 +177,8 @@ async function processFile(file) {
       // Create waveform visualization
       createWaveformVisualization();
 
-      // Enable transcribe button if we have an output folder
-      checkTranscribeButtonState();
+      // Enable transcribe button
+      transcribeButton.disabled = false;
 
       // Hide error message if any
       errorMessageElement.classList.add('hidden');
@@ -243,16 +229,6 @@ function createWaveformVisualization() {
   }
 }
 
-function updateChunkSizeDisplay() {
-  const value = chunkSizeSlider.value;
-  chunkSizeValue.textContent = value + ' seconds';
-}
-
-function checkTranscribeButtonState() {
-  // Enable transcribe button only if we have a file and output location
-  transcribeButton.disabled = !(currentFile && outputFolder);
-}
-
 async function loadLanguages() {
   try {
     const languages = await window.Bridge.getAvailableLanguages();
@@ -269,111 +245,50 @@ async function loadLanguages() {
       languageSelect.appendChild(option);
     }
 
-    // Set default language
+    // Set default language (Armenian)
+    languageSelect.value = 'hy';
     currentLanguage = languageSelect.value;
-    updateLanguageDisplay();
   } catch (error) {
     console.error('Error loading languages:', error);
-    showError('Failed to load languages. Using English as default.');
+
+    // Add a fallback option for Armenian if loading fails
+    languageSelect.innerHTML = '';
+    const option = document.createElement('option');
+    option.value = 'hy';
+    option.textContent = 'Armenian';
+    languageSelect.appendChild(option);
+
+    currentLanguage = 'hy';
+    showError('Failed to load languages. Using Armenian as default.');
   }
 }
 
-async function loadOutputLocations() {
+async function loadDefaultOutputFolder() {
   try {
-    const response = await window.Bridge.selectOutputFolder();
+    // Get default folder
+    const response = await window.Bridge.getDefaultFolder();
 
-    // Set default output folder
-    outputFolder = response.current;
-    outputPathElement.textContent = outputFolder;
-
-    // Enable transcribe button if we have a file
-    checkTranscribeButtonState();
-  } catch (error) {
-    console.error('Error loading output locations:', error);
-    showError('Failed to load output locations.');
-  }
-}
-
-async function showFolderSelector() {
-  try {
-    const response = await window.Bridge.selectOutputFolder();
-
-    // Create a modal for folder selection
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.innerHTML = `
-      <div class="modal-content">
-        <span class="close">&times;</span>
-        <h2>Select Output Folder</h2>
-        <select id="folder-select" class="folder-select">
-          ${response.folders.map(folder => `<option value="${folder}">${folder}</option>`).join('')}
-        </select>
-        <div class="modal-buttons">
-          <button id="select-folder-button" class="button">Select</button>
-          <button id="cancel-folder-button" class="button button-secondary">Cancel</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Set current folder as selected
-    const select = document.getElementById('folder-select');
-    for (let i = 0; i < select.options.length; i++) {
-      if (select.options[i].value === outputFolder) {
-        select.selectedIndex = i;
-        break;
-      }
+    if (response.success) {
+      // Set default output folder
+      outputFolder = response.folder;
+    } else {
+      console.error('Failed to get default folder');
+      showError('Failed to load default output location.');
     }
-
-    // Add event listeners
-    document.querySelector('.close').addEventListener('click', () => {
-      document.body.removeChild(modal);
-    });
-
-    document.getElementById('cancel-folder-button').addEventListener('click', () => {
-      document.body.removeChild(modal);
-    });
-
-    document.getElementById('select-folder-button').addEventListener('click', async () => {
-      const selectedFolder = select.value;
-
-      try {
-        const result = await window.Bridge.setOutputFolder(selectedFolder);
-
-        if (result.success) {
-          outputFolder = selectedFolder;
-          outputPathElement.textContent = outputFolder;
-          checkTranscribeButtonState();
-        } else {
-          showError(`Failed to set output folder: ${result.error}`);
-        }
-      } catch (error) {
-        showError(`Error setting output folder: ${error.message}`);
-      }
-
-      document.body.removeChild(modal);
-    });
-
   } catch (error) {
-    console.error('Error showing folder selector:', error);
-    showError(`Error showing folder selector: ${error.message}`);
+    console.error('Error loading default output folder:', error);
+    showError('Failed to load default output location.');
   }
 }
 
 function updateLanguageDisplay() {
   const selectedOption = languageSelect.options[languageSelect.selectedIndex];
-  document.getElementById('selected-language').textContent = selectedOption.textContent;
+  currentLanguage = selectedOption.value;
 }
 
 async function transcribeAudio() {
   if (!currentFile) {
     showError('Please select an audio file first.');
-    return;
-  }
-
-  if (!outputFolder) {
-    showError('Please select an output folder.');
     return;
   }
 
@@ -395,8 +310,8 @@ async function transcribeAudio() {
   try {
     const response = await window.Bridge.transcribeAudio(currentFile, {
       languageCode: currentLanguage,
-      outputFolder: outputFolder,
-      chunkDuration: parseInt(chunkSizeSlider.value, 10),
+      outputFolder: outputFolder, // Use the default Downloads folder
+      chunkDuration: 30, // Fixed at 30 seconds
       apiKey: settings.apiKey,
       model: settings.model,
       useLocalModel: settings.useLocalModel
@@ -406,10 +321,8 @@ async function transcribeAudio() {
       // Show success message with Markdown file information
       let successMessage = `Transcription completed successfully!`;
 
-      if (response.markdownPath) {
-        successMessage += ` Saved as Markdown to: ${response.markdownPath}`;
-      } else if (response.result && response.result.outputPath) {
-        successMessage += ` Saved as Markdown to: ${response.result.outputPath}`;
+      if (response.outputPath) {
+        successMessage += ` Saved as Markdown to: ${response.outputPath}`;
       }
 
       successMessageElement.textContent = successMessage;
@@ -417,11 +330,13 @@ async function transcribeAudio() {
       errorMessageElement.classList.add('hidden');
 
       // Display transcription result
-      transcriptionResult = response.result.text || '';
+      transcriptionResult = response.result || '';
       transcriptionContent.textContent = transcriptionResult;
       outputSection.style.display = 'block';
     } else {
       showError(`Transcription failed: ${response.error}`);
+      // Hide the output section when there's an error
+      outputSection.style.display = 'none';
     }
   } catch (error) {
     showError(`Error during transcription: ${error.message}`);

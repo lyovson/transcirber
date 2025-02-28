@@ -19,7 +19,8 @@ export class FileService {
     // Use environment variables with fallbacks
     this.inputDir = Deno.env.get('INPUT_DIR') || join(Deno.cwd(), 'inputs')
     this.outputDir = Deno.env.get('OUTPUT_DIR') || join(Deno.cwd(), 'outputs')
-    this.tempDir = join(this.outputDir, 'temp')
+    // Keep temp directory in the application directory, not in the output directory
+    this.tempDir = join(Deno.cwd(), 'temp')
     this.combinedOutputFile = join(
       this.outputDir,
       'combined_transcription.md',
@@ -57,17 +58,15 @@ export class FileService {
    * @param dir - New output directory path
    */
   setOutputDir(dir: string): void {
+    console.log(`Setting output directory to: ${dir}`)
     this.outputDir = dir
     // Update dependent paths
-    this.tempDir = join(this.outputDir, 'temp')
     this.combinedOutputFile = join(this.outputDir, 'combined_transcription.md')
+    // Don't change the temp directory location as it could cause permission issues
+    // this.tempDir = join(this.outputDir, 'temp')
     // Ensure the new directory exists
     ensureDir(this.outputDir).catch((error) => {
       console.error(`Error creating output directory: ${error}`)
-    })
-    // Also ensure temp directory exists
-    ensureDir(this.tempDir).catch((error) => {
-      console.error(`Error creating temp directory: ${error}`)
     })
   }
 

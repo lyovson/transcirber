@@ -1,8 +1,8 @@
-import { FileService } from './services/file-service/index.ts'
-import { TranscriptionService } from './services/transcription/index.ts'
-import { AudioSplitterService } from './services/audio-splitter/index.ts'
-import { TranscriptionConfig } from './types/index.ts'
-import { setupEnv } from './utils/env.ts'
+import { FileService } from '../services/file-service/index.ts'
+import { TranscriptionService } from '../services/transcription/index.ts'
+import { AudioSplitterService } from '../services/audio-splitter/index.ts'
+import { TranscriptionConfig } from '../types/index.ts'
+import { setupEnv } from '../utils/env.ts'
 
 /**
  * Result type for the transcription process
@@ -27,7 +27,7 @@ export class TranscriptionApp {
   /**
    * Creates a new TranscriptionApp instance
    */
-  constructor(config: Partial<TranscriptionConfig> = {}, chunkDuration = 120) {
+  constructor(config: Partial<TranscriptionConfig> = {}, chunkDuration = 30) {
     this.fileService = new FileService()
     this.audioSplitterService = new AudioSplitterService()
     this.chunkDuration = chunkDuration
@@ -139,11 +139,8 @@ export class TranscriptionApp {
 
       const combinedText = this.fileService.combineChunkTranscriptions(chunkTranscriptions)
 
-      // Save the transcription in both formats
-      const fileName = inputFilePath.split('/').pop() || 'transcription.txt'
-
-      // Save as plain text
-      await this.fileService.saveTranscription(combinedText, fileName, 'txt')
+      // Save the transcription only as Markdown
+      const fileName = inputFilePath.split('/').pop() || 'transcription'
 
       // Save as Markdown
       const mdOutputPath = await this.fileService.saveTranscription(combinedText, fileName, 'md')
@@ -176,5 +173,17 @@ export class TranscriptionApp {
     if (this.transcriptionService) {
       this.transcriptionService.updateConfig(config)
     }
+  }
+
+  /**
+   * Updates the output directory
+   * @param outputDir - New output directory
+   */
+  updateOutputDir(outputDir: string): Promise<void> {
+    if (outputDir && this.fileService) {
+      this.fileService.setOutputDir(outputDir)
+      console.log(`TranscriptionApp output directory updated to: ${outputDir}`)
+    }
+    return Promise.resolve()
   }
 }

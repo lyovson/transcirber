@@ -1,6 +1,6 @@
 // import { Webview } from 'https://deno.land/x/deno_webview/mod.ts'
 import { join } from 'https://deno.land/std@0.208.0/path/mod.ts'
-import { TranscriptionApp } from './app.ts'
+import { TranscriptionApp } from '../index.ts'
 import { ensureDir, exists } from 'https://deno.land/std@0.208.0/fs/mod.ts'
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { extname } from 'https://deno.land/std@0.208.0/path/mod.ts'
@@ -32,8 +32,11 @@ export class TranscriberUI {
   private constructor() {
     // Initialize the transcription app
     this.app = new TranscriptionApp({
-      languageCode: 'en', // Default English
+      languageCode: 'hy', // Default Armenian
     })
+
+    // We don't await initialization here since constructors can't be async
+    // The initialization will be properly handled in run() and API endpoints
 
     // Initialize with default output folders
     this.initializeOutputFolders()
@@ -41,6 +44,18 @@ export class TranscriberUI {
     // Set up temp directory for file uploads
     this.tempDir = join(Deno.cwd(), 'temp')
     this.initializeTempDir()
+  }
+
+  /**
+   * Initialize the transcription app
+   */
+  private async initializeApp(): Promise<boolean> {
+    try {
+      return await this.app.initialize()
+    } catch (error) {
+      console.error('Error initializing transcription app:', error)
+      return false
+    }
   }
 
   /**
@@ -81,8 +96,20 @@ export class TranscriberUI {
       if (homeDir) {
         this.outputFolders.push(homeDir)
 
-        // Add common subdirectories
-        const commonDirs = ['Documents', 'Downloads', 'Desktop']
+        // Add Downloads directory as the primary output location
+        const downloadsPath = join(homeDir, 'Downloads')
+        if (await exists(downloadsPath)) {
+          this.outputFolders.unshift(downloadsPath)
+
+          // Set the app's output directory to Downloads by default
+          if (this.app) {
+            await this.app.updateOutputDir(downloadsPath)
+            console.log(`Set default output directory to Downloads: ${downloadsPath}`)
+          }
+        }
+
+        // Add other common subdirectories
+        const commonDirs = ['Documents', 'Desktop']
         for (const dir of commonDirs) {
           const path = join(homeDir, dir)
           if (await exists(path)) {
@@ -180,15 +207,23 @@ export class TranscriberUI {
           // For macOS and Linux, use osascript or zenity
           try {
             if (Deno.build.os === 'darwin') {
-              // Use AppleScript on macOS
+              // Use a simpler AppleScript on macOS for better performance
               const command = new Deno.Command('osascript', {
                 args: [
                   '-e',
-                  'tell application "Finder" to set folderPath to POSIX path of (choose folder with prompt "Select Output Folder")',
+                  'POSIX path of (choose folder with prompt "Select Output Folder")',
                 ],
               })
               const { stdout } = await command.output()
               selectedFolder = new TextDecoder().decode(stdout).trim()
+
+              // Validate the folder exists
+              if (selectedFolder && await exists(selectedFolder)) {
+                console.log(`Selected folder: ${selectedFolder}`)
+              } else {
+                console.error('Selected folder does not exist or was not selected')
+                selectedFolder = ''
+              }
             } else {
               // Use zenity on Linux
               const command = new Deno.Command('zenity', {
@@ -282,6 +317,14 @@ export class TranscriberUI {
           if (!this.outputFolders.includes(folder)) {
             this.outputFolders.unshift(folder)
           }
+
+          // Make sure the app's output directory is updated
+          if (this.app) {
+            // Update the app's output directory
+            await this.app.updateOutputDir(folder)
+            console.log(`Updated app output directory to: ${folder}`)
+          }
+
           return new Response(JSON.stringify({ success: true, folder }), {
             headers: { 'Content-Type': 'application/json' },
           })
@@ -313,27 +356,9 @@ export class TranscriberUI {
 
     if (path === '/api/getAvailableLanguages') {
       const languages = [
-        'en',
-        'es',
-        'fr',
-        'de',
-        'it',
-        'pt',
-        'nl',
-        'ru',
-        'zh',
-        'ja',
-        'ko',
-        'ar',
-        'hi',
-        'tr',
-        'pl',
-        'vi',
-        'th',
-        'id',
-        'sv',
-        'no',
-        'hy', // Add Armenian language
+        'hy', // Armenian (default)
+        'ru', // Russian
+        'en', // English
       ]
       return new Response(JSON.stringify(languages), {
         headers: { 'Content-Type': 'application/json' },
@@ -342,30 +367,12 @@ export class TranscriberUI {
 
     if (path === '/api/getLanguageName') {
       const params = new URLSearchParams(url.search)
-      const code = params.get('code') || 'en'
+      const code = params.get('code') || 'hy'
 
       const languageMap: Record<string, string> = {
-        'en': 'English',
-        'es': 'Spanish',
-        'fr': 'French',
-        'de': 'German',
-        'it': 'Italian',
-        'pt': 'Portuguese',
-        'nl': 'Dutch',
+        'hy': 'Armenian',
         'ru': 'Russian',
-        'zh': 'Chinese',
-        'ja': 'Japanese',
-        'ko': 'Korean',
-        'ar': 'Arabic',
-        'hi': 'Hindi',
-        'tr': 'Turkish',
-        'pl': 'Polish',
-        'vi': 'Vietnamese',
-        'th': 'Thai',
-        'id': 'Indonesian',
-        'sv': 'Swedish',
-        'no': 'Norwegian',
-        'hy': 'Armenian', // Add Armenian language
+        'en': 'English',
       }
 
       return new Response(JSON.stringify({ name: languageMap[code] || code }), {
@@ -391,19 +398,49 @@ export class TranscriberUI {
           )
         }
 
+        // Ensure app is initialized
+        if (!(await this.initializeApp())) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Failed to initialize transcription service',
+            }),
+            {
+              headers: { 'Content-Type': 'application/json' },
+            },
+          )
+        }
+
         // Update app configuration
         this.app.updateConfig({
           languageCode: options.languageCode,
           // Add other config options as needed
         })
 
-        // Run transcription
+        // Get the Downloads folder as the default output location
+        let outputFolder = options.outputFolder
+        if (!outputFolder) {
+          const homeDir = Deno.env.get('HOME') || Deno.env.get('USERPROFILE')
+          if (homeDir) {
+            const downloadsPath = join(homeDir, 'Downloads')
+            if (await exists(downloadsPath)) {
+              outputFolder = downloadsPath
+            }
+          }
+
+          // Fallback to current directory if Downloads not found
+          if (!outputFolder) {
+            outputFolder = Deno.cwd()
+          }
+        }
+
+        // Run transcription with fixed 30s chunk duration
         console.log(
-          `Transcribing ${filePath} with chunk duration ${options.chunkDuration}s to ${options.outputFolder}`,
+          `Transcribing ${filePath} with chunk duration 30s to ${outputFolder}`,
         )
 
         // Call the actual transcription process
-        const result = await this.app.run(filePath, options.outputFolder)
+        const result = await this.app.run(filePath, outputFolder)
 
         return new Response(
           JSON.stringify({
@@ -432,10 +469,30 @@ export class TranscriberUI {
     }
 
     if (path === '/api/getDefaultFolder') {
-      // Return the current working directory
+      // Always use Downloads folder as default
+      let defaultFolder = Deno.cwd() // Fallback
+
+      try {
+        const homeDir = Deno.env.get('HOME') || Deno.env.get('USERPROFILE')
+        if (homeDir) {
+          const downloadsPath = join(homeDir, 'Downloads')
+          if (await exists(downloadsPath)) {
+            defaultFolder = downloadsPath
+
+            // Also update the app's output directory
+            if (this.app) {
+              await this.app.updateOutputDir(downloadsPath)
+              console.log(`Set default output directory to Downloads: ${downloadsPath}`)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error getting Downloads folder:', error)
+      }
+
       return new Response(
         JSON.stringify({
-          folder: Deno.cwd(),
+          folder: defaultFolder,
           success: true,
         }),
         {
@@ -540,7 +597,7 @@ export class TranscriberUI {
   public async run(): Promise<void> {
     try {
       // Initialize the transcription app
-      await this.app.initialize()
+      await this.initializeApp()
 
       // Start the web server
       const port = 8000

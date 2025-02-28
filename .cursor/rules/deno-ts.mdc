@@ -1,11 +1,12 @@
 ---
-Description: General TypeScript and Deno standards for Transcriber project
-Globs:
-  - '**/*.ts'
-  - '**/*.tsx'
+description: Typescript, Deno, General rules.
+globs: 
+alwaysApply: true
 ---
 
 # Guidelines
+
+- Reference the project folder for info on project.
 
 ## TypeScript Best Practices
 
@@ -24,7 +25,7 @@ Globs:
 - Implement proper error handling with descriptive messages
 - Use Deno's built-in testing framework with comprehensive test coverage
 - Leverage Deno's native TypeScript support without transpilation
-- Run 'deno test' and 'deno lint' after each iteration to see if nothing got broken. Run 'deno fmt' in the end.
+- Run 'deno task test' and 'deno lint' after each iteration to see if nothing got broken. Run 'deno task fmt' in the end.
 
 ## Code Structure
 

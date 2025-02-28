@@ -43,7 +43,7 @@ Deno.test('FileService', async (t) => {
 
     const inputInfo = await Deno.stat(testInputDir)
     const outputInfo = await Deno.stat(testOutputDir)
-    const tempInfo = await Deno.stat(join(testOutputDir, 'temp'))
+    const tempInfo = await Deno.stat(join(Deno.cwd(), 'temp'))
 
     assertEquals(inputInfo.isDirectory, true, 'Input directory should exist')
     assertEquals(outputInfo.isDirectory, true, 'Output directory should exist')
@@ -66,7 +66,7 @@ Deno.test('FileService', async (t) => {
 
   await t.step('getTempDir returns correct path', () => {
     const tempDir = fileService.getTempDir()
-    assertEquals(tempDir, join(testOutputDir, 'temp'), 'Should return correct temp directory path')
+    assertEquals(tempDir, join(Deno.cwd(), 'temp'), 'Should return correct temp directory path')
   })
 
   await t.step('combineChunkTranscriptions combines text correctly', () => {
