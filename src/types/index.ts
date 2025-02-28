@@ -13,6 +13,7 @@ export type TranscriptionConfig = {
   tagAudioEvents: boolean
   languageCode: string
   diarize: boolean
+  apiKey?: string
 }
 
 /**

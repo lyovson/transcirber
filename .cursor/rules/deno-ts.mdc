@@ -6,7 +6,8 @@ alwaysApply: true
 
 # Guidelines
 
-- Reference the project folder for info on project.
+- Reference the project/ folder for info on project.
+- Create new plan files in the project/ folder and use them as needed.
 
 ## TypeScript Best Practices
 

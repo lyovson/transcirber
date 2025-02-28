@@ -1,11 +1,42 @@
 /**
- * Bridge between the UI and the backend server
- * This file contains functions that communicate with the backend
- * through HTTP requests.
+ * Bridge Module
+ *
+ * Handles communication between the UI and the backend server through HTTP requests.
+ * Provides an API for file operations, transcription, and language management.
  */
 
 // Base URL for API requests
 const API_BASE_URL = 'http://localhost:8000/api';
+
+/**
+ * File Operations
+ */
+
+/**
+ * Upload a file to the server
+ * @param {File} file - The file to upload
+ * @returns {Promise<Object>} Result of the upload operation
+ */
+async function uploadFile(file) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/uploadFile`, {
+      method: 'POST',
+      body: formData
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Folder Management
+ */
 
 /**
  * Select an output folder using the native file dialog
@@ -48,26 +79,23 @@ async function setOutputFolder(folder) {
 }
 
 /**
- * Upload a file to the server
- * @param {File} file - The file to upload
- * @returns {Promise<Object>} Result of the upload operation
+ * Get the default output folder
+ * @returns {Promise<Object>} Object containing the default folder
  */
-async function uploadFile(file) {
+async function getDefaultFolder() {
   try {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch(`${API_BASE_URL}/uploadFile`, {
-      method: 'POST',
-      body: formData
-    });
-
-    return await response.json();
+    const response = await fetch(`${API_BASE_URL}/getDefaultFolder`);
+    const data = await response.json();
+    return data;
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error('Error getting default folder:', error);
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Transcription
+ */
 
 /**
  * Transcribe an audio file
@@ -76,6 +104,9 @@ async function uploadFile(file) {
  * @param {number} options.chunkDuration - Duration of each chunk in seconds
  * @param {string} options.languageCode - Language code for transcription
  * @param {string} options.outputFolder - Folder to save the transcription
+ * @param {string} options.apiKey - API key for the transcription service
+ * @param {string} options.model - Model to use for transcription
+ * @param {boolean} options.useLocalModel - Whether to use a local model
  * @returns {Promise<Object>} Transcription result
  */
 async function transcribeAudio(filePath, options) {
@@ -104,6 +135,10 @@ async function transcribeAudio(filePath, options) {
     };
   }
 }
+
+/**
+ * Language Management
+ */
 
 /**
  * Get a list of available languages for transcription
@@ -135,28 +170,26 @@ async function getLanguageName(code) {
   }
 }
 
-/**
- * Get the default output folder
- * @returns {Promise<Object>} Object containing the default folder
- */
-async function getDefaultFolder() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/getDefaultFolder`);
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error getting default folder:', error);
-    return { success: false, error: error.message };
-  }
-}
+// Create the Bridge object with all functions
+const Bridge = {
+  // File operations
+  uploadFile,
 
-// Export the bridge functions
-window.Bridge = {
+  // Folder management
   selectOutputFolder,
   setOutputFolder,
-  uploadFile,
+  getDefaultFolder,
+
+  // Transcription
   transcribeAudio,
+
+  // Language management
   getAvailableLanguages,
   getLanguageName,
-  getDefaultFolder,
 };
+
+// Expose to window for backward compatibility
+window.Bridge = Bridge;
+
+// Export as default
+export default Bridge;

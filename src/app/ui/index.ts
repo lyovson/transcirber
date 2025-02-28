@@ -414,6 +414,8 @@ export class TranscriberUI {
         // Update app configuration
         this.app.updateConfig({
           languageCode: options.languageCode,
+          apiKey: options.apiKey,
+          modelId: options.model,
           // Add other config options as needed
         })
 

@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- API key configuration through UI settings
+- Support for passing API key from UI to backend
+- Improved error handling for transcription failures
+- Debug logging for better troubleshooting
+
+### Changed
+- Refactored frontend code to use ES modules
+- Improved module organization with separate responsibility areas
+- Converted DOM element references to use a centralized object
+- Enhanced bridge module with better documentation and organization
+- Updated event handlers to use the new DOM elements object
+- Improved code readability and maintainability
+
+### Fixed
+- Fixed issue with API key not being passed to the transcription service
+- Resolved references to undefined functions
+- Fixed direct DOM element access in event handlers
+- Improved error handling in transcription process
+
+## [0.2.0] - 2024-07-28
+
+### Added
 - Initial project setup with Deno 2
 - TypeScript implementation of audio transcription functionality
 - File service for handling audio files

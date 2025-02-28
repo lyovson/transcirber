@@ -117,16 +117,19 @@ The app will be built using Deno with a modern web-based UI, leveraging the exis
 3. Implement the dark mode design system
 
 ### 2. Connect UI to Core Functionality
+
 1. Create bridge between UI and existing audio splitting service
 2. Implement file selection and validation
 3. Connect configuration options to the transcription process
 
 ### 3. Enhance User Experience
+
 1. Add real-time progress updates
 2. Implement error handling with user-friendly messages
 3. Add animations and transitions for a polished feel
 
 ### 4. Testing and Refinement
+
 1. Test with various audio files and configurations
 2. Gather feedback on UI/UX
 3. Refine design and functionality based on feedback
